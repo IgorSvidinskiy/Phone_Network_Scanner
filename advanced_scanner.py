@@ -20,13 +20,13 @@ class AdvancedNetworkScanner:
     def get_local_ip(self):
         """Получить локальный IP адрес и маску подсети"""
         try:
-            result = subprocess.run(['ip', 'addr', 'show', self.interface], 
-                                  capture_output=True, text=True)
-            match = re.search(r'inet (\d+\.\d+\.\d+\.\d+)/(\d+)', result.stdout)
-            if match:
-                ip = match.group(1)
-                cidr = match.group(2)
-                return ip, cidr
+            # Универсальный метод через socket
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
+            s.close()
+            cidr = '24'  # По умолчанию для локальных сетей
+            return ip, cidr
         except Exception as e:
             print(f"❌ Ошибка получения IP: {e}")
         return None, None

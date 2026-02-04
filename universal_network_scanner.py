@@ -125,36 +125,43 @@ class UniversalNetworkScanner:
         prefix = mac[:8].upper()
         return vendors.get(prefix, 'Unknown')
     
-    def get_mac_address(self, ip):
-        """Получить MAC адрес для IP через ARP (универсально)"""
-        try:
-            # Ping для заполнения ARP таблицы
-            if self.os_type == 'windows':
-                ping_cmd = ['ping', '-n', '1', '-w', '1000', ip]
-            else:
-                ping_cmd = ['ping', '-c', '1', '-W', '1', ip]
-            
-            subprocess.run(ping_cmd, capture_output=True, timeout=2)
-            
-            # Чтение ARP таблицы
-            if self.os_type == 'windows':
-                result = subprocess.run(['arp', '-a', ip], 
-                                      capture_output=True, text=True)
-            else:
-                result = subprocess.run(['arp', '-n', ip], 
-                                      capture_output=True, text=True)
-            
-            # Поиск MAC адреса в выводе
-            mac_pattern = r'([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}'
-            match = re.search(mac_pattern, result.stdout)
-            if match:
-                mac = match.group(0)
-                # Нормализация формата (приведение к двоеточиям)
-                mac = mac.replace('-', ':').upper()
-                return mac
-        except:
-            pass
-        return None
+def get_mac_address(self, ip):
+    """Получить MAC адрес для IP через ARP (универсально)"""
+    try:
+        # Несколько ping для надёжного заполнения ARP
+        if self.os_type == 'windows':
+            ping_cmd = ['ping', '-n', '3', '-w', '500', ip]
+        else:
+            ping_cmd = ['ping', '-c', '3', '-W', '1', ip]
+        
+        subprocess.run(ping_cmd, capture_output=True, timeout=3)
+        
+        # Пробуем разные команды для чтения ARP
+        arp_commands = [
+            ['ip', 'neigh', 'show', ip],
+            ['arp', '-n', ip],
+            ['arp', '-a', ip],
+            ['cat', '/proc/net/arp']
+        ]
+        
+        for cmd in arp_commands:
+            try:
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=2)
+                # Ищем строку с нужным IP
+                for line in result.stdout.split('\n'):
+                    if ip in line:
+                        mac_pattern = r'([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}'
+                        match = re.search(mac_pattern, line)
+                        if match:
+                            mac = match.group(0)
+                            mac = mac.replace('-', ':').upper()
+                            return mac
+            except:
+                continue
+                
+    except:
+        pass
+    return None
     
     def check_host(self, ip):
         """Проверить доступность хоста"""
